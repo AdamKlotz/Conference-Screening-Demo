@@ -103,7 +103,7 @@ function CriteriaColumn({
       <div className="p-3 sm:p-4 space-y-3">
         {criteria.map((criterion) => (
           <div key={criterion.id} className="flex items-start gap-3 p-2.5 sm:p-3 rounded-lg bg-gray-50 border border-gray-100">
-            <span className={`mt-1 w-2.5 h-2.5 rounded-full ${palette.dot}`} />
+            <span className={`mt-1 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full ${palette.dot}`} />
             <div>
               <div className="text-xs font-semibold text-gray-500 mb-1">{criterion.id}</div>
               <p className="text-sm text-gray-800 leading-relaxed break-words">{criterion.question_text}</p>

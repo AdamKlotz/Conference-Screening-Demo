@@ -167,7 +167,7 @@ export default function WorkflowDemoPanel({
                     className="flex items-start gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100"
                   >
                     <span
-                      className={`mt-0.5 flex-shrink-0 w-2 h-2 rounded-full ${
+                      className={`mt-0.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
                         criterion.type === 'inclusion' ? 'bg-green-500' : 'bg-red-400'
                       }`}
                     />
