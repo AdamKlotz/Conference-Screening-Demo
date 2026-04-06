@@ -22,10 +22,10 @@ function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Clinical Trial Screening
+                SONAR eligibility workflow
               </h1>
               <p className="text-xs text-gray-500 sm:text-sm">
-                AI-powered patient screening for clinical trials
+                Using language models to automate prescreening for clinical trials
               </p>
             </div>
             <span className="inline-flex px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-500 text-[11px] font-medium lowercase tracking-wide">
@@ -135,10 +135,10 @@ function HomePage({
           <FlaskConical size={32} className="text-blue-600" />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-3 sm:text-4xl">
-          Clinical Trial Screening
+          SONAR eligibility workflow
         </h2>
         <p className="text-base text-gray-500 mb-8 sm:text-lg">
-          SONAR eligibility workflow
+          Using language models to automate prescreening for clinical trials
         </p>
 
         <button

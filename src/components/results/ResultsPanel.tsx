@@ -4,6 +4,12 @@ import { jobsApi } from '../../api/client';
 import type { Job } from '../../types';
 import { Download, RefreshCw, CheckCircle, Clock, AlertCircle, XCircle, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
 import { HelpButton, HelpPanel } from '../ui/HelpPanel';
+import {
+  confidenceDisplayLabel,
+  decisionDisplayLabel,
+  normalizeConfidence,
+  normalizeDecision,
+} from '../../utils/resultLabels';
 
 function formatSubmittedAt(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -154,8 +160,6 @@ function ResultCard({
       onFocusCleared?.();
     }
   }, [isFocused]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [minInclusion, setMinInclusion] = useState(0);
-  const [maxExclusion, setMaxExclusion] = useState<number | null>(null);
 
   const { data: resultsData, isLoading } = useQuery<ResultsData>({
     queryKey: ['results', job.job_id],
@@ -168,16 +172,7 @@ function ResultCard({
   const inclusionTotal = resultsData?.inclusion_total ?? 0;
   const exclusionTotal = resultsData?.exclusion_total ?? 0;
   const hasCriteriaCounts = inclusionTotal > 0 || exclusionTotal > 0;
-
-  // Initialise maxExclusion once we know the total
-  const effectiveMaxExclusion = maxExclusion ?? exclusionTotal;
-
-  const filteredResults = resultsData?.results.filter(row => {
-    if (!hasCriteriaCounts || row.inclusion_total === undefined) return true;
-    if ((row.inclusion_met ?? 0) < minInclusion) return false;
-    if ((row.exclusion_triggered ?? 0) > effectiveMaxExclusion) return false;
-    return true;
-  }) ?? [];
+  const displayedResults = resultsData?.results ?? [];
 
   return (
     <div ref={cardRef} className="bg-white rounded-lg border border-gray-200">
@@ -200,7 +195,7 @@ function ResultCard({
           )}
           {collapsed && resultsData && (
             <span className="text-xs text-gray-400">
-              {resultsData.summary.included} include · {resultsData.summary.review} review · {resultsData.summary.excluded} exclude
+              {resultsData.summary.included} likely include · {resultsData.summary.review} possible include · {resultsData.summary.excluded} likely exclude
             </span>
           )}
         </div>
@@ -235,13 +230,13 @@ function ResultCard({
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <span className="text-sm font-medium text-gray-600">Summary:</span>
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              {resultsData.summary.included} Include
+              {resultsData.summary.included} Likely Include
             </span>
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-              {resultsData.summary.review} Review
+              {resultsData.summary.review} Possible Include
             </span>
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              {resultsData.summary.excluded} Exclude
+              {resultsData.summary.excluded} Likely Exclude
             </span>
             <span className="text-xs text-gray-500 ml-auto">
               {resultsData.summary.total}
@@ -249,49 +244,9 @@ function ResultCard({
             </span>
           </div>
 
-          {/* Threshold filter — only shown when criteria count data is available */}
-          {hasCriteriaCounts && (
-            <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-xs font-medium text-gray-700 mb-2">Threshold Filter</p>
-              <div className="flex flex-wrap gap-4">
-                {inclusionTotal > 0 && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600">
-                    Min inclusion met
-                    <input
-                      type="number"
-                      min={0}
-                      max={inclusionTotal}
-                      value={minInclusion}
-                      onChange={e => setMinInclusion(Math.min(inclusionTotal, Math.max(0, Number(e.target.value))))}
-                      className="w-12 px-1.5 py-0.5 border border-gray-300 rounded text-center text-xs"
-                    />
-                    <span className="text-gray-400">/ {inclusionTotal}</span>
-                  </label>
-                )}
-                {exclusionTotal > 0 && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600">
-                    Max exclusion triggered
-                    <input
-                      type="number"
-                      min={0}
-                      max={exclusionTotal}
-                      value={effectiveMaxExclusion}
-                      onChange={e => setMaxExclusion(Math.min(exclusionTotal, Math.max(0, Number(e.target.value))))}
-                      className="w-12 px-1.5 py-0.5 border border-gray-300 rounded text-center text-xs"
-                    />
-                    <span className="text-gray-400">/ {exclusionTotal}</span>
-                  </label>
-                )}
-                <span className="text-xs text-gray-500 ml-auto self-center">
-                  Showing {filteredResults.length} of {resultsData.results.length}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* Results table */}
           <div className="grid gap-3 lg:hidden">
-            {filteredResults.map((row, index) => (
+            {displayedResults.map((row, index) => (
               <div key={row.patient_id} className="rounded-lg border border-gray-200 bg-white p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -322,14 +277,14 @@ function ResultCard({
                 <tr>
                   <th className="text-left px-4 py-2 font-medium text-gray-700 border-b">Patient</th>
                   <th className="text-left px-4 py-2 font-medium text-gray-700 border-b">Decision</th>
-                  <th className="text-left px-4 py-2 font-medium text-gray-700 border-b">Confidence</th>
+                  <th className="text-left px-4 py-2 font-medium text-gray-700 border-b">Model Confidence</th>
                   {hasCriteriaCounts && (
                     <th className="text-left px-4 py-2 font-medium text-gray-700 border-b">Criteria</th>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {filteredResults.map((row, i) => (
+                {displayedResults.map((row, i) => (
                   <tr key={row.patient_id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-4 py-2 font-medium text-gray-900">{formatPatientLabel(i)}</td>
                     <td className="px-4 py-2">{decisionBadge(row.decision)}</td>
@@ -395,24 +350,27 @@ function EmptyResultsState() {
 }
 
 function decisionBadge(decision: string) {
-  switch (decision) {
-    case 'Include':
-      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Include</span>;
-    case 'Exclude':
-      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Exclude</span>;
-    default:
-      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Review</span>;
+  const normalized = normalizeDecision(decision);
+
+  if (normalized === 'include') {
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Likely Include</span>;
   }
+
+  if (normalized === 'exclude') {
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Likely Exclude</span>;
+  }
+
+  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{decisionDisplayLabel(decision)}</span>;
 }
 
 function confidenceBadge(confidence: string) {
-  switch (confidence) {
-    case 'High':
-      return <span className="text-xs text-green-700 font-medium">High</span>;
-    case 'Low':
-      return <span className="text-xs text-red-700 font-medium">Low</span>;
+  switch (normalizeConfidence(confidence)) {
+    case 'high':
+      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">{confidenceDisplayLabel(confidence)}</span>;
+    case 'low':
+      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">{confidenceDisplayLabel(confidence)}</span>;
     default:
-      return <span className="text-xs text-yellow-700 font-medium">Medium</span>;
+      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">{confidenceDisplayLabel(confidence)}</span>;
   }
 }
 

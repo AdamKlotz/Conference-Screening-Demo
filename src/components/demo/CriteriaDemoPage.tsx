@@ -1,5 +1,5 @@
 import { ArrowRight, CheckCircle2, ClipboardList } from 'lucide-react';
-import { demoCriteria, demoPackage } from '../../data/demoData';
+import { demoCriteria, demoPackage, DEMO_STUDY_URL } from '../../data/demoData';
 
 export default function CriteriaDemoPage({
   onNext,
@@ -31,6 +31,14 @@ export default function CriteriaDemoPage({
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
             <h3 className="text-lg font-semibold text-gray-900">{demoPackage.name}</h3>
             <p className="text-sm text-gray-600 mt-1">{demoPackage.description}</p>
+            <a
+              href={DEMO_STUDY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center text-sm text-blue-700 hover:text-blue-800 underline underline-offset-2 mt-2"
+            >
+              ClinicalTrials.gov: NCT01858532
+            </a>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 {inclusion.length} inclusion

@@ -8,6 +8,8 @@ import type {
 } from '../types';
 import {
   DEMO_FILE_ID,
+  DEMO_EXCLUSION_TOTAL,
+  DEMO_INCLUSION_TOTAL,
   DEMO_PACKAGE_ID,
   demoCriteria,
   demoJobTemplate,
@@ -15,6 +17,11 @@ import {
   demoPreviewRecords,
   demoResults,
 } from '../data/demoData';
+import {
+  confidenceDisplayLabel,
+  decisionDisplayLabel,
+  normalizeDecision,
+} from '../utils/resultLabels';
 
 const STORAGE_KEYS = {
   packages: 'conference-demo-sonar.v2.packages',
@@ -47,19 +54,29 @@ function canUseStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+function withSeededDemoPackage(packages: CalibrationPackage[]) {
+  return [demoPackage, ...packages.filter((pkg) => pkg.package_id !== DEMO_PACKAGE_ID)];
+}
+
 function readPackages(): CalibrationPackage[] {
   if (!canUseStorage()) return [demoPackage];
   const raw = window.localStorage.getItem(STORAGE_KEYS.packages);
   if (!raw) {
-    writePackages([demoPackage]);
-    return [demoPackage];
+    const seeded = [demoPackage];
+    writePackages(seeded);
+    return seeded;
   }
   try {
     const parsed = JSON.parse(raw) as CalibrationPackage[];
-    return parsed.length > 0 ? parsed : [demoPackage];
+    const normalized = withSeededDemoPackage(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      writePackages(normalized);
+    }
+    return normalized;
   } catch {
-    writePackages([demoPackage]);
-    return [demoPackage];
+    const seeded = [demoPackage];
+    writePackages(seeded);
+    return seeded;
   }
 }
 
@@ -68,19 +85,28 @@ function writePackages(packages: CalibrationPackage[]) {
   window.localStorage.setItem(STORAGE_KEYS.packages, JSON.stringify(packages));
 }
 
+function withSeededDemoJob(jobs: StoredJob[]) {
+  const seeded = seedStoredJob();
+  return [seeded, ...jobs.filter((job) => job.job_id !== seeded.job_id)];
+}
+
 function readJobs(): StoredJob[] {
   if (!canUseStorage()) return [seedStoredJob()];
   const raw = window.localStorage.getItem(STORAGE_KEYS.jobs);
   if (!raw) {
-    const seeded = [seedStoredJob()];
+    const seeded = withSeededDemoJob([]);
     writeJobs(seeded);
     return seeded;
   }
   try {
     const parsed = JSON.parse(raw) as StoredJob[];
-    return parsed.length > 0 ? parsed : [seedStoredJob()];
+    const normalized = withSeededDemoJob(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      writeJobs(normalized);
+    }
+    return normalized;
   } catch {
-    const seeded = [seedStoredJob()];
+    const seeded = withSeededDemoJob([]);
     writeJobs(seeded);
     return seeded;
   }
@@ -440,7 +466,7 @@ export const jobsApi = {
     const results = await jobsApi.getResults(jobId);
     const rows = ['patient_id,decision,confidence,source'];
     results.results.forEach((row) => {
-      rows.push(`${row.patient_id},${row.decision},${row.confidence},${row.source ?? ''}`);
+      rows.push(`${row.patient_id},${decisionDisplayLabel(row.decision)},${confidenceDisplayLabel(row.confidence)},${row.source ?? ''}`);
     });
     return new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   },
@@ -482,13 +508,13 @@ export const jobsApi = {
       results: visibleResults,
       summary: {
         total: visibleResults.length,
-        included: visibleResults.filter((row) => row.decision === 'Include').length,
-        excluded: visibleResults.filter((row) => row.decision === 'Exclude').length,
-        review: visibleResults.filter((row) => row.decision === 'Review').length,
+        included: visibleResults.filter((row) => normalizeDecision(row.decision) === 'include').length,
+        excluded: visibleResults.filter((row) => normalizeDecision(row.decision) === 'exclude').length,
+        review: visibleResults.filter((row) => normalizeDecision(row.decision) === 'possible').length,
       },
       is_partial: job.state !== 'completed',
-      inclusion_total: 4,
-      exclusion_total: 10,
+      inclusion_total: DEMO_INCLUSION_TOTAL,
+      exclusion_total: DEMO_EXCLUSION_TOTAL,
     };
   },
 };
